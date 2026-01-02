@@ -1,0 +1,462 @@
+---
+title: "MCU. Un análisis codificado"
+description: |
+  Un recorrido por las películas y los personajes del Universo Cinematográfico de Marvel
+author:
+  - name: Arantxa Anais Arcos Raimundo
+    affiliation: Universitat de València
+    affiliation-url: https://www.uv.es
+date: 2026-01-02                           #--
+categories: [trabajo BigData, marvel, hérores, películas]   #--
+image: "./imagenes/universo_marvel.jpg"
+title-block-banner: true #- {true, false, "green","#AA0000"}
+title-block-banner-color: "EB1F48"    #-"#FFFFFF" 
+toc-depth: 3
+smooth-scroll: true
+format: 
+  html:
+    #backgroundcolor: "#F1F3F4"
+    #embed-resources: true
+    link-external-newwindow: true
+    #css: assets/my_css_file.css   #- CUIDADO!!!!
+code-tools: true
+code-link: true
+---
+
+## Introducción
+
+Vamos a utilizar datos extraídos de Kaggle, los cuales podemos encontrar [aquí](https://www.kaggle.com/datasets/jainaru/marvel-movies-box-office-data?resource=download) y [aquí](https://www.kaggle.com/datasets/sahirmaharajj/the-avengers-dataset/data).
+
+Los datos se pueden cargar en la memoria de de R/RStudio de esta forma:
+
+```{r}
+my_ruta <- "./data/marvel_movies.csv"
+
+df_movies <- rio::import(my_ruta)
+
+names (df_movies)
+
+my_ruta_personajes <- "./data/avengers.csv"
+
+df_personajes <- rio::import(my_ruta_personajes)
+
+```
+
+El primer dataset contiene observaciones sobre un conjunto de `r nrow(df_movies)` películas de Marvel. Hay `r ncol(df_movies)` variables. El segundo dataset contiente observaciones sobre un conjunto `r nrow(df_personajes)` personajes de cómics. Hay `r ncol(df_personajes)` variables. Cabe destacar que los datasets escogidos solo llegan hasta 2023 por lo que el análisis no incluirá los cambios que han habido de vengadores o algunas de las nuevas incorporaciones más recientes. 
+
+---
+
+## Marvel Studios
+
+A continuación, podemos observar una imagen en la que se encuentran muchos de los principales personajes del Universo Cinematográfico de Marvel.
+
+```{r}
+#| echo: false
+my_url <- "https://images.alphacoders.com/100/1003204.jpg"
+```
+
+![Marvel characters](https://images.alphacoders.com/100/1003204.jpg)
+
+------------------------------------------------------------------------
+
+Como bien sabemos el MCU es mucho más extenso ya que en los cómics hay muchos más personajes de los que han llegado a salir en la saga de *Avengers*; por ello, en el margen vamos a poner una foto con muchos más héroes y heroínas:
+
+::: column-margin
+![](./imagenes/universo_marvel.jpg){fig-align="center"}
+:::
+
+------------------------------------------------------------------------
+
+## Algunos gráficos
+
+Bueno pues vamos a hacer algún gráfico, pero claro antes he de cargar los paquetes.
+
+```{r}
+#| eval: true
+library(tidyverse)
+library(dplyr)
+library(forcats)
+library(gt)
+library(plotly)
+
+```
+
+Por otro lado, vamos a establecer la paleta que pondremos en nuestros gráficos.
+
+```{r setup}
+#Configuración de paleta
+
+library(paletteer)
+
+paleta_discreta <- paletteer_c( "ggthemes::Orange-Blue-White Diverging", 6)
+
+scale_fill_default <- function(...) {
+  scale_fill_gradientn(colors = mi_paleta, ...)
+}
+
+scale_color_default <- function(...) {
+  scale_color_gradientn(colors = mi_paleta, ...)
+}
+
+
+```
+
+Por otro lado, un paso previo también es arreglar los datos. Para ello, en primer lugar, vamos a quitar aquellas columnas que no necesitamos o añadir las que nos hagan falta.
+
+```{r}
+#- En el df de películas no vamos a quitar ninguna columna; sin embargo, vamos a añadir una con el protagonista de cada película.
+df_movies <- df_movies %>%
+  mutate (protagonista = case_when(
+    grepl("Iron", movie) ~ "Iron Man",
+    grepl("America", movie) ~ "Captain America",
+    grepl("Thor", movie) ~ "Thor",
+    grepl("Incredible Hulk", movie) ~ "Hulk",
+    grepl("Widow", movie) ~ "Black Widow",
+    grepl("Ant-Man", movie) ~ "Ant-Man",
+    grepl("Spider-Man", movie) ~ "Spider-Man",
+    grepl("Shang-Chi", movie) ~ "Shang-Chi",
+    grepl("Deadpool", movie) ~ "Deadpool",
+    grepl("Panther", movie) ~ "Black Panther",
+    grepl("Strange", movie) ~ "Dr Strange",
+  )) %>%
+  relocate (protagonista, .after = category)
+
+
+#- Por otra parte, en el df de personajes vamos a hacer algunas modificaciones. Comenzaremos quitando estas dos columnas que no nos hacen falta:
+df_personajes <- df_personajes %>%
+  select (- V22, - Notes)
+
+#- A continuación, añadimos una nueva columna llamada "Alias" en las que pondremos los nombres de superhéroe de cada personaje y la recolocaremos al lado de los Nombres/Alias originales:
+
+df_personajes <- df_personajes %>%
+  filter(`Name/Alias` != "Tony Masters") %>% 
+  mutate(Alias = case_when(
+    grepl("Tony", `Name/Alias`) ~ "Iron Man",
+    grepl("Clinton Francis Barton", `Name/Alias`) ~ "Hawkeye",
+    grepl("Rogers", `Name/Alias`) ~ "Captain America",
+    grepl("Thor", `Name/Alias`) ~ "Thor",
+    grepl("Banner", `Name/Alias`) ~ "Hulk",
+    grepl("Romanova", `Name/Alias`) ~ "Black Widow",
+    grepl("Scott Edward Harris Lang", `Name/Alias`) ~ "Ant-Man",
+    grepl("Wanda Maximoff", `Name/Alias`) ~ "Scarlet Witch",
+    grepl("Peter Benjamin Parker", `Name/Alias`) ~ "Spider-Man",
+    grepl("Shang-Chi", `Name/Alias`) ~ "Shang-Chi",
+    grepl("T'Challa", `Name/Alias`) ~ "Black Panther",
+    grepl("Buchanan", `Name/Alias`) ~ "Bucky",
+    grepl("Victor Shade ", `Name/Alias`) ~ "Vision",
+    grepl("Doctor Stephen Vincent Strange", `Name/Alias`) ~ "Dr Strange",
+    TRUE ~ "Other")) %>%
+  relocate(Alias, .after = `Name/Alias`)
+
+#- También vamos a crear un nuevo df con los Vengadores para poder juntarlos con el df_movies
+
+avengers <- df_personajes %>%
+  filter (Alias != "Other") %>%
+  select (URL, `Name/Alias`, Alias, Appearances, Gender)
+
+#- Finalmente, juntaremos el df de avengers con el de películas para tener observar las películas individuales que tienen algunos personajes:
+
+pelicula_propia <- avengers %>%
+  left_join(df_movies, by = c("Alias" = "protagonista")) %>%
+  select (`Name/Alias`,movie, Gender, Appearances, Alias, year)
+
+
+```
+
+------------------------------------------------------------------------
+
+### Primeros gráficos. Comparativa numérica
+
+En este apartado, realizamos una comparación entre el número de héroes y heroínas y la cantidad de películas que están asociadas a cada uno.
+
+En este primer gráfico, vamos a contrastar el número de personajes que hay en el MCU según su género para mostrar en una gráfica que el número de hombres es mayor al de mujeres, debido a que en un comienzo la mayoría de personajes que se escribían eran hombres.
+
+```{r}
+#- primer gráfico
+
+genero <- df_personajes %>% 
+  filter(Gender %in% c("MALE", "FEMALE"))
+
+p <- ggplot(data = genero,
+  mapping = aes(x = Gender, fill = Gender)) +
+  geom_bar() +
+  labs(
+    title = "Comparativa de género entre superhéroes",
+    x = "Género",
+    y = "Número de superhéroes") +
+  theme_minimal(base_family = "mono") +
+  theme(legend.position = "none",
+        plot.title = element_text(size=15,
+                                   vjust=2,
+                                   face="bold")) +  
+  scale_fill_manual(values = paleta_discreta)
+
+p
+
+
+```
+
+Tras esta imagen, vamos a comparar el porcentaje de películas individuales que tienen los hombres vs las mujeres dentro del equipo de Vengadores en un piechart. Como podemos comprobar, al haber más héroes, tanto en el equipo de Avengers como en general, el porcentaje de películas que van a estar protagonizadas por ellos es mucho mayor.
+
+```{r}
+
+porcentaje <- pelicula_propia %>%
+  filter(!is.na(movie)) %>%
+  count(Gender) %>%
+  mutate(
+    porcentaje = n / sum(n),
+    label = scales::percent(porcentaje, accuracy = 1))
+
+p <- ggplot( porcentaje,
+  aes(x = "", y = n, fill = Gender)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y") +
+  geom_text(
+    aes(label = label),
+    position = position_stack(vjust = 0.5),
+    color = "white",
+    size = 5) +
+  theme_void(base_family = "mono")+
+  theme(plot.title = element_text(size=15,
+                                   vjust=2,
+                                   face="bold")) + 
+  labs(
+    title = "Porcentaje de películas por género",
+    subtitle = "(protagonistas vengadores)") +
+  scale_fill_manual(values = paleta_discreta)
+
+p
+
+```
+
+Por último, en la siguiente gráfica se muestra el número de películas que tiene cada uno de los Vengadores. Cabe destacar el caso de Spider-Man el cual realmente tendría más películas; sin embargo, en este análisis solo usamos las más recientes que son las 3 protagonizadas por el actor Tom Holland y la de animación con Miles Morales.
+
+```{r}
+
+p <- ggplot(pelicula_propia %>% filter(!is.na(movie)), aes(x = Alias)) +
+  geom_bar(fill = "#ff721a") +
+  labs(
+    title = "Número de películas por personaje",
+    x = "Personajes",
+    y = "Número de películas") +
+  coord_flip() +
+  geom_bar(aes(forcats::fct_rev(forcats::fct_infreq(Alias))),
+         fill = "#ff721a") +
+  theme_minimal(base_family = "mono")+
+  theme (plot.title = element_text(size=15,
+                                   vjust=2,
+                                   face="bold"))
+
+p
+
+
+```
+
+------------------------------------------------------------------------
+
+### Segundo gráfico. Marvel y la taquilla
+
+A continuación, vamos a construir un gráfico circular para ver qué películas han tenido una mayor recaudación.
+
+```{r}
+#- segundo gráfico
+
+recaudacion <- df_movies %>%
+  select(movie, `worldwide gross ($m)`) %>%
+  filter(!is.na(`worldwide gross ($m)`)) %>%
+  mutate(
+    id = row_number(),
+    value = `worldwide gross ($m)`,
+    individual = movie)
+
+number_of_bar <- nrow(recaudacion)
+
+angle <- 90 - 360 * (recaudacion$id - 0.5) / number_of_bar
+
+recaudacion$hjust <- ifelse(angle < -90, 1, 0)
+recaudacion$angle <- ifelse(angle < -90, angle + 180, angle)
+
+
+p <- ggplot(recaudacion, aes(x = as.factor(id), y = value)) +
+    geom_bar(stat = "identity", fill = alpha("#2B5C8A", 0.9)) +
+    ylim(-max(recaudacion$value) * 0.25, max(recaudacion$value) * 1.1) +
+    theme_minimal(base_family = "mono") +
+    theme(
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    panel.grid = element_blank(),
+    plot.margin = unit(rep(1, 4), "cm")) +
+   coord_polar(start = 0) +
+  geom_text(
+    data = recaudacion,
+    aes(
+      x = id,
+      y = value + max(recaudacion$value) * 0.05,
+      label = individual,
+      hjust = hjust),
+    angle = recaudacion$angle,
+    inherit.aes = FALSE,
+    size = 3,
+    alpha = 0.7)
+
+p
+
+
+```
+
+A este gráfico, para hacer una mayor aproximación,lo acompañaremos con una tabla que muestre el top 5 películas más recaudadas.
+
+```{r}
+top5recaudacion <- df_movies %>%
+  arrange(desc(`worldwide gross ($m)`)) %>%
+  slice_head(n = 5) %>%
+  rename(recaudacion_taquilla = `worldwide gross ($m)`) %>%
+  select(movie, recaudacion_taquilla)
+
+
+top5rec_tabla<- top5recaudacion %>%
+  gt() %>%
+  tab_header(
+    title = "Top 5 películas Marvel - Recaudación mundial",
+    subtitle = "(en millones de dólares)") %>%
+  cols_label(
+    movie = "Película",
+    recaudacion_taquilla = "Recaudación")%>%
+  fmt_currency(
+    columns = recaudacion_taquilla,
+    currency = "USD",
+    decimals = 0) %>%
+  tab_style(
+    style = cell_text(font = "mono"),
+    locations = cells_body()) %>%
+  tab_style(
+    style = cell_text(font = "mono"),
+    locations = cells_title(groups = c("title", "subtitle"))) %>%
+  tab_style(
+    style = cell_text(font = "mono"),
+    locations = cells_column_labels()) %>%
+  tab_options(
+    table.background.color = "#FFF6ED")
+
+top5rec_tabla
+```
+
+Finalmente, compararemos el top 5 películas más valoradas por la audiencia con las más valoradas por los críticos.
+
+```{r}
+
+top5audiencia <- df_movies %>%
+  arrange(desc(`audience % score`)) %>%
+  slice_head(n = 5) %>%
+  rename(audiencia = `audience % score`) %>%
+  select(movie, audiencia)
+
+top5aud_tabla<- top5audiencia %>%
+  gt() %>%
+  tab_header(
+    title = "Top 5 películas Marvel - Mejor valoradas por la audiencia",
+    subtitle = "(en porcentaje)") %>%
+  cols_label(
+    movie = "Película",
+    audiencia = "Porcentaje") %>%
+  tab_style(
+    style = cell_text(font = "mono"),
+    locations = cells_body()) %>%
+  tab_style(
+    style = cell_text(font = "mono"),
+    locations = cells_title(groups = c("title", "subtitle"))) %>%
+  tab_style(
+    style = cell_text(font = "mono"),
+    locations = cells_column_labels()) %>%
+  tab_options(
+    table.background.color = "#FFF6ED")
+
+top5aud_tabla
+
+```
+
+```{r}
+top5criticos <- df_movies %>%
+  arrange(desc(`critics % score`)) %>%
+  slice_head(n = 5) %>%
+  rename(criticos = `critics % score`) %>%
+  select(movie, criticos)
+
+top5crit_tabla<- top5criticos %>%
+  gt() %>%
+  tab_header(
+    title = "Top 5 películas Marvel - Mejor valoradas por los críticos",
+    subtitle = "(en porcentaje)") %>%
+  cols_label(
+    movie = "Película",
+    criticos = "Porcentaje") %>%
+  tab_style(
+    style = cell_text(font = "mono"),
+    locations = cells_body()) %>%
+  tab_style(
+    style = cell_text(font = "mono"),
+    locations = cells_title(groups = c("title", "subtitle"))) %>%
+  tab_style(
+    style = cell_text(font = "mono"),
+    locations = cells_column_labels()) %>%
+  tab_options(
+    table.background.color = "#FFF6ED")
+
+top5crit_tabla
+```
+
+Con esta comparación podemos observar que las películas más aclamadas por la audiencia no coinciden con la valoración de los críticos a excepción de las dos películas de Spider-man lo cual, desde mi punto de vista, es un acierto puesto que a nivel de producción y trama son muy buenos largometrajes.
+
+### Último gráfico. Apariciones en cómics y películas.
+
+Este último gráfico muestra el número de apariciones que han tenido los personajes. En este caso, hemos pedido los cinco con mayor frecuencia entre los cuales encontramos a Spider-Man y el Capitán América.
+
+```{r}
+#- tercer gráfico
+library(ggplot2)
+library(plotly)
+
+apariciones <- df_personajes %>%
+   mutate(Appearances = as.numeric(Appearances),            
+         Appearances = if_else(`Name/Alias` == "_Jr._(Earth-616)#", 0, Appearances))
+
+p <- apariciones  %>%
+  filter (Appearances >= 2000) %>%
+  slice_max(Appearances, n = 5) %>%
+  ggplot( aes(`Name/Alias`, Appearances, size = 2.5, color = `Name/Alias`)) +
+  geom_point() +
+  theme_gray(base_family = "mono") +
+  theme(legend.position = "none", 
+        plot.title = element_text(size=15,
+                                   vjust=2,
+                                   face="bold")) +
+  scale_color_manual(values = paleta_discreta) + 
+  labs(
+    title = "Apariciones de personajes (aprox.)") 
+
+ggplotly(p)
+
+```
+
+<br>
+
+Con esto acabo mi trabajo para BigData ;)
+
+
+(**wakanda forever**)
+
+<br>
+
+------------------------------------------------------------------------
+
+<br>
+
+### Información sobre la sesión
+
+Abajo muestro mi entorno de trabajo y paquetes utilizados
+
+```{r}
+#| echo: false
+sessioninfo::session_info() %>% 
+  details::details(summary = 'current session info') 
+```
