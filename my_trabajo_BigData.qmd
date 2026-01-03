@@ -70,7 +70,7 @@ Sin embargo, cabe mencionar que los personajes aparecidos en la última batalla 
 
 Vamos a utilizar datos extraídos de Kaggle, los cuales podemos encontrar [aquí](https://www.kaggle.com/datasets/jainaru/marvel-movies-box-office-data?resource=download),  [aquí](https://www.kaggle.com/datasets/sahirmaharajj/the-avengers-dataset/data), 
 [aquí](https://www.kaggle.com/datasets/dalepeh/mcu-movies-dataset) y
-[aquí](https://www.kaggle.com/datasets/jonbown/marvel-screen-time),
+[aquí](https://www.kaggle.com/datasets/jonbown/marvel-screen-time).
 
 
 A continuación, explicaremos un poco nuestra elección de datos:
